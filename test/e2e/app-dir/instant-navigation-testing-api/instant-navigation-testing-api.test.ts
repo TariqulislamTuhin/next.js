@@ -91,11 +91,7 @@ afterEach(async () => {
     // surfaced). Development legitimately logs warnings here (such as a
     // blocking-route prerender insight), so only assert in production.
     if (!isNextDev) {
-      // TODO: Hydration is currently broken on deploy, so skip this check until
-      // it is fixed.
-      if (!isNextDeploy) {
-        await assertNoConsoleErrors(activeBrowser)
-      }
+      await assertNoConsoleErrors(activeBrowser)
     }
     activeBrowser = undefined
   }
@@ -259,51 +255,47 @@ describe('instant-navigation-testing-api', () => {
     })
   })
 
-  // TODO: When reloading this page with the instant test cookie set, hydration
-  // is currently broken.
-  if (!isNextDeploy) {
-    it('renders shell on page reload', async () => {
-      const page = await openPage(next, '/target-page')
+  it('renders shell on page reload', async () => {
+    const page = await openPage(next, '/target-page')
 
-      // Wait for the page to fully load with dynamic content
-      const dynamicContent = page.locator('[data-testid="dynamic-content"]')
-      await dynamicContent.waitFor({ state: 'visible' })
+    // Wait for the page to fully load with dynamic content
+    const dynamicContent = page.locator('[data-testid="dynamic-content"]')
+    await dynamicContent.waitFor({ state: 'visible' })
 
-      await instant(page, async () => {
-        // Reload the page while in instant mode
-        await page.reload()
+    await instant(page, async () => {
+      // Reload the page while in instant mode
+      await page.reload()
 
-        // The loading shell appears, but dynamic content is blocked
-        const loadingShell = page.locator('[data-testid="loading-shell"]')
-        await loadingShell.waitFor({ state: 'visible' })
-        expect(await loadingShell.textContent()).toContain(
-          'Loading target page...'
-        )
-
-        // Dynamic content has not streamed in yet
-        expect(await dynamicContent.count()).toBe(0)
-
-        // Wait for the instant-mode hydration to finish before releasing the
-        // lock. This mirrors real usage, where the cookie is cleared (e.g. via
-        // DevTools) after the page is interactive, so the unlock resolves
-        // client-side. Releasing before hydration completes intentionally falls
-        // back to a hard reload (see refreshOnInstantNavigationUnlock).
-        await page.waitForFunction(
-          () => (globalThis as any).__NEXT_HYDRATED === true
-        )
-      })
-
-      // After exiting the instant scope, dynamic content streams in. Releasing
-      // the lock must resolve client-side rather than hard reloading the
-      // document.
-      const navigationsAtUnlock = navigationRequests.length
-      await dynamicContent.waitFor({ state: 'visible' })
-      expect(await dynamicContent.textContent()).toContain(
-        'Dynamic content loaded'
+      // The loading shell appears, but dynamic content is blocked
+      const loadingShell = page.locator('[data-testid="loading-shell"]')
+      await loadingShell.waitFor({ state: 'visible' })
+      expect(await loadingShell.textContent()).toContain(
+        'Loading target page...'
       )
-      expect(navigationRequests.length).toBe(navigationsAtUnlock)
+
+      // Dynamic content has not streamed in yet
+      expect(await dynamicContent.count()).toBe(0)
+
+      // Wait for the instant-mode hydration to finish before releasing the
+      // lock. This mirrors real usage, where the cookie is cleared (e.g. via
+      // DevTools) after the page is interactive, so the unlock resolves
+      // client-side. Releasing before hydration completes intentionally falls
+      // back to a hard reload (see refreshOnInstantNavigationUnlock).
+      await page.waitForFunction(
+        () => (globalThis as any).__NEXT_HYDRATED === true
+      )
     })
-  }
+
+    // After exiting the instant scope, dynamic content streams in. Releasing
+    // the lock must resolve client-side rather than hard reloading the
+    // document.
+    const navigationsAtUnlock = navigationRequests.length
+    await dynamicContent.waitFor({ state: 'visible' })
+    expect(await dynamicContent.textContent()).toContain(
+      'Dynamic content loaded'
+    )
+    expect(navigationRequests.length).toBe(navigationsAtUnlock)
+  })
 
   it('renders shell on MPA navigation via plain anchor', async () => {
     const page = await openPage(next, '/')
