@@ -1846,11 +1846,17 @@ export async function cache(
   // In case getClientReferenceManifestSingleton is implemented using AsyncLocalStorage.
   const clientReferenceManifest = getClientReferenceManifest()
 
+  const serverModuleMap = getServerModuleMap()
+  const codeHash = serverModuleMap[id].codeHash
+
   // Because the Action ID is not yet unique per implementation of that Action we can't
   // safely reuse the results across builds yet. In the meantime we add the buildId to the
   // arguments as a seed to ensure they're not reused. Remove this once Action IDs hash
   // the implementation.
-  const buildId = workStore.deploymentId || workStore.buildId
+  const buildId =
+    typeof codeHash === 'string'
+      ? codeHash
+      : workStore.deploymentId || workStore.buildId
 
   // In dev mode, when the HMR refresh hash is set, we include it in the
   // cache key. This ensures that cache entries are not reused when server
